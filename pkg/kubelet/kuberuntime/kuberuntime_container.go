@@ -47,6 +47,7 @@ import (
 	"k8s.io/kubernetes/pkg/kubelet/util/format"
 	"k8s.io/kubernetes/pkg/util/selinux"
 	"k8s.io/kubernetes/pkg/util/tail"
+	"path"
 )
 
 var (
@@ -77,6 +78,11 @@ func (m *kubeGenericRuntimeManager) recordContainerEvent(pod *v1.Pod, container 
 		eventMessage = strings.Replace(eventMessage, containerID, container.Name, -1)
 	}
 	m.recorder.Event(ref, eventType, reason, eventMessage)
+}
+
+//LogSymlink_emptdir return path
+func LogSymlink_emptdir(podFullName, containerName, dockerId string) string {
+	return path.Join(fmt.Sprintf("/var/log/containers/applog.%s.%s.%s.%s", podFullName, containerName, dockerId, "log"))
 }
 
 // startContainer starts a container and returns a message indicates why it is failed on error.
@@ -151,6 +157,29 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 		glog.Errorf("Failed to create legacy symbolic link %q to container %q log %q: %v",
 			legacySymlink, containerID, containerLog, err)
 	}
+
+	// Step 3.1 create symlink
+	for i := 0; i < len(pod.Spec.Volumes); i++ {
+		if pod.Spec.Volumes[i].EmptyDir != nil {
+			emptydirname := pod.Spec.Volumes[i].Name
+			cname := container.Name
+			str := "logdir" + cname
+			if emptydirname == str && cname != "POD" {
+
+				podUID := fmt.Sprintf("%s",pod.UID)
+				//podUID := kubecontainer.GetPodUID(pod)
+				containerLogFile_emptdir := path.Join("/var/lib/kubelet/pods", podUID, "volumes/kubernetes.io~empty-dir", emptydirname)
+				//containerLogsDir, podFullName, containerName, dockerId string
+				symlinkFile_emptdir := LogSymlink_emptdir(kubecontainer.GetPodFullName(pod), container.Name, containerID)
+				//symlinkFile_emptdir := LogSymlink_emptdir(containerID, containerMeta.Name, sandboxMeta.Name,
+				//	sandboxMeta.Namespace)
+				if err = os.Symlink(containerLogFile_emptdir, symlinkFile_emptdir); err != nil {
+					glog.Errorf("Failed to create symbolic link to the application's log file of pod %q container %q : %v", format.Pod(pod), container.Name, err)
+				}
+			}
+		}
+	}
+
 
 	// Step 4: execute the post start hook.
 	if container.Lifecycle != nil && container.Lifecycle.PostStart != nil {

@@ -1368,6 +1368,10 @@ func (kl *Kubelet) Run(updates <-chan kubetypes.PodUpdate) {
 	// Start volume manager
 	go kl.volumeManager.Run(kl.sourcesReady, wait.NeverStop)
 
+	//sync network and runtimeup
+	kl.syncNetworkStatus()
+	kl.updateRuntimeUp()
+
 	if kl.kubeClient != nil {
 		// Start syncing node status immediately, this may set up things the runtime needs to run.
 		go wait.Until(kl.syncNodeStatus, kl.nodeStatusUpdateFrequency, wait.NeverStop)
