@@ -37,6 +37,7 @@ import (
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubetypes "k8s.io/apimachinery/pkg/types"
+	kubeletypes "k8s.io/kubernetes/pkg/kubelet/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	runtimeapi "k8s.io/kubernetes/pkg/kubelet/apis/cri/v1alpha1/runtime"
@@ -165,10 +166,13 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 			cname := container.Name
 			str := "logdir" + cname
 			if emptydirname == str && cname != "POD" {
-
 				podUID := fmt.Sprintf("%s",pod.UID)
-				//podUID := kubecontainer.GetPodUID(pod)
-				containerLogFile_emptdir := path.Join("/var/lib/kubelet/pods", podUID, "volumes/kubernetes.io~empty-dir", emptydirname)
+				containerLogFile_emptdir := ""
+				if _, ok := pod.Annotations[kubeletypes.KUBELETROOTDIR]; ok {
+					containerLogFile_emptdir = path.Join(pod.Annotations[kubeletypes.KUBELETROOTDIR] + "/pods", podUID, "volumes/kubernetes.io~empty-dir", emptydirname)
+				} else {
+					containerLogFile_emptdir = path.Join("/var/lib/kubelet/pods", podUID, "volumes/kubernetes.io~empty-dir", emptydirname)
+				}
 				//containerLogsDir, podFullName, containerName, dockerId string
 				symlinkFile_emptdir := LogSymlink_emptdir(kubecontainer.GetPodFullName(pod), container.Name, containerID)
 				//symlinkFile_emptdir := LogSymlink_emptdir(containerID, containerMeta.Name, sandboxMeta.Name,
@@ -204,6 +208,15 @@ func (m *kubeGenericRuntimeManager) startContainer(podSandboxID string, podSandb
 // generateContainerConfig generates container config for kubelet runtime v1.
 func (m *kubeGenericRuntimeManager) generateContainerConfig(container *v1.Container, pod *v1.Pod, restartCount int, podIP, imageRef string) (*runtimeapi.ContainerConfig, error) {
 	opts, err := m.runtimeHelper.GenerateRunContainerOptions(pod, container, podIP)
+
+	//leo dubbo
+	//container.Ports
+	//pod.Spec.HostNetwork
+	//opts.Envs = append(opts.Envs, envs...)
+	//if pod.Spec.HostNetwork == true && container.Ports == nil{
+
+	//}
+
 	if err != nil {
 		return nil, err
 	}

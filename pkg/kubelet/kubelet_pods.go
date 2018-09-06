@@ -472,6 +472,7 @@ func (kl *Kubelet) GenerateRunContainerOptions(pod *v1.Pod, container *v1.Contai
 	}
 	opts.Mounts = append(opts.Mounts, mounts...)
 
+	//leo dubbo hostnetwork add env
 	envs, err := kl.makeEnvironmentVariables(pod, container, podIP)
 	if err != nil {
 		return nil, err
